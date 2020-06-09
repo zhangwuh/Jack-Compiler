@@ -18,15 +18,17 @@ func Test_removeComments(t *testing.T) {
 	assert.Equal(t, removeComments("aa/*ttt xxx */"), "aa")
 	assert.Equal(t, removeComments("aaa/*ttt xxx */ bbb"), "aaa bbb")
 	assert.Equal(t, removeComments("  /**ttt xxx ****/  "), "")
+	assert.Equal(t, removeComments("  * ttt xxx ****  "), "")
+	assert.Equal(t, removeComments("  /** ttt xxx ****  "), "")
 }
 
 func TestTokenizer_Tokenize(t *testing.T) {
-	file, _ := os.Open("ArrayTest/Main.jack")
+	file, _ := os.Open("Square/SquareGame.jack")
 	defer file.Close()
 	tokenizer := &tokenizer{}
 	tokenizer.Tokenize(file)
 	writer := &tokensOnlyWriter{}
-	fo, err := os.Create("output/arrayTestT.xml")
+	fo, err := os.Create("output/SquareGameT.xml")
 	if err != nil {
 		panic(err)
 	}

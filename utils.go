@@ -38,8 +38,8 @@ func isNumber(r rune) bool {
 	return r >= '0' && r <= '9'
 }
 
-var commentReg = regexp.MustCompile(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`)
+var commentReg = regexp.MustCompile(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)|(^\*[^\/]).*|(^(\/\*\*).*)|^(\*\/)`)
 
 func removeComments(line string) string {
-	return strings.TrimSpace(commentReg.ReplaceAllString(line, ""))
+	return strings.TrimSpace(commentReg.ReplaceAllString(strings.TrimSpace(line), ""))
 }
