@@ -4,23 +4,138 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
+	"strconv"
 )
 
 type tokenizer struct {
+	file         string
+	tokens       []Token
+	currentToken []rune
 }
 
-func (tokenizer *tokenizer) Tokenize(rd io.Reader) (tokens []TerminalToken) {
+type TokensWriter interface {
+	Write(ts []Token, writer io.Writer)
+}
+
+type tokensOnlyWriter struct {
+}
+
+func (tow *tokensOnlyWriter) Write(ts []Token, writer io.Writer) {
+	writer.Write([]byte("<tokens>\n"))
+	for _, ts := range ts {
+		writer.Write([]byte(ts.AsText() + "\n"))
+	}
+	writer.Write([]byte("</tokens>"))
+}
+
+func (tokenizer *tokenizer) Tokenize(rd io.Reader) error {
 	reader := bufio.NewReader(rd)
+	var lineCount int
 	for {
-		line, _, err := reader.ReadLine()
-		if err != nil {
-			fmt.Println(fmt.Sprintf("read from reader err:%s", err.Error()))
-			return
+		lineCount++
+		line, _, e := reader.ReadLine()
+		if e != nil {
+			if e != io.EOF {
+				fmt.Println(fmt.Sprintf("read from reader err:%s", e.Error()))
+				return e
+			}
+			//end of file
+			return nil
 		}
-		tokens = append(tokens, tokenize(line))
+		e = tokenizer.tokenize(string(line))
+		if e != nil {
+			fmt.Println(fmt.Sprintf("err in file %s, line %d, error:%s", tokenizer.file, lineCount, e.Error()))
+			return e
+		}
 	}
 }
 
-func tokenize(bs []byte) TerminalToken {
+func (tokenizer *tokenizer) tokenize(line string) error {
+	line = removeComments(line)
+	if len(line) == 0 {
+		return nil
+	}
+	return tokenizer.lexicalAnalysis(line)
+}
 
+func buildToken(currentToken []rune) (Token, error) {
+	typ, err := resolveTokenType(string(currentToken))
+	if err != nil {
+		return nil, err
+	}
+	return &TerminalToken{typ, string(currentToken)}, nil
+}
+
+func (t *tokenizer) lexicalAnalysis(line string) error {
+	for i := 0; i < len(line); i++ {
+		r := []rune(line)[i]
+		if isWord(r) {
+			t.currentToken = append(t.currentToken, r)
+		} else if isNumber(r) {
+			t.currentToken = append(t.currentToken, r)
+		} else if isSymbol(r) {
+			err := t.flush()
+			if err != nil {
+				return err
+			}
+			tt := &TerminalToken{Symbol, string(r)}
+			t.tokens = append(t.tokens, tt)
+		} else if r == ' ' {
+			err := t.flush()
+			if err != nil {
+				return err
+			}
+		} else if r == '"' {
+			t.currentToken = append(t.currentToken, '"')
+			for i < len(line) {
+				i++
+				nr := line[i]
+				if nr == '"' {
+					t.currentToken = append(t.currentToken, '"')
+					err := t.flush()
+					if err != nil {
+						return err
+					}
+					break
+				} else {
+					t.currentToken = append(t.currentToken, rune(nr))
+				}
+			}
+		}
+	}
+	err := t.flush()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *tokenizer) flush() error {
+	if len(t.currentToken) > 0 {
+		tt, err := buildToken(t.currentToken)
+		if err != nil {
+			return err
+		}
+		t.currentToken = t.currentToken[:0]
+		t.tokens = append(t.tokens, tt)
+	}
+	return nil
+}
+
+func resolveTokenType(s string) (TokenType, error) {
+	if ContainsString(keywords, s) {
+		return Keyword, nil
+	}
+
+	if stringReg.MatchString(s) {
+		return StringConstant, nil
+	}
+	if identifierReg.MatchString(s) {
+		return Identifier, nil
+	}
+	if i, err := strconv.Atoi(s); err == nil || i <= math.MaxInt16 {
+		return IntegerConstant, nil
+	}
+	return "", fmt.Errorf("syntax error:%s", s)
 }

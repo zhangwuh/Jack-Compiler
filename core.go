@@ -3,6 +3,7 @@ package jack_compiler
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 type TokenType string
@@ -34,6 +35,26 @@ const (
 	ExpressionList  TokenType = "expressionList"
 )
 
+var terminalElements = []TokenType{Keyword, Identifier, Symbol, IntegerConstant, StringConstant}
+
+func isTerminalElement(t TokenType) bool {
+	for _, te := range terminalElements {
+		if te == t {
+			return true
+		}
+	}
+	return false
+}
+
+func isSymbol(r rune) bool {
+	for _, sr := range symbols {
+		if sr == r {
+			return true
+		}
+	}
+	return false
+}
+
 var keywords = []string{"class", "constructor", "function", "method", "field", "static", "var", "int", "char", "boolean",
 	"void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"}
 var symbols = []rune{'{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', '*', '/', '&', '|', '<', '>', '=', '~', '<', '>', '&'}
@@ -63,7 +84,10 @@ func (tt *TerminalToken) SubTokens() []Token {
 }
 
 func (tt *TerminalToken) AsText() string {
-	return fmt.Sprintf("<%s>%s</%s>", tt.tokenType, tt.val, tt.tokenType)
+	if tt.tokenType == StringConstant {
+		tt.val = strings.ReplaceAll(tt.val, "\"", "")
+	}
+	return fmt.Sprintf("<%s>%s</%s>", tt.tokenType, EscapeXml(tt.val), tt.tokenType)
 }
 
 func (tt *TerminalToken) IsTerminal() bool {
@@ -90,7 +114,7 @@ func (tt *NonTerminalToken) SubTokens() []Token {
 func (tt *NonTerminalToken) AsText() string {
 	body := ""
 	for _, t := range tt.tokens {
-		body += t.AsText()
+		body += EscapeXml(t.AsText())
 	}
 	return fmt.Sprintf("<%s>%s</%s>", tt.tokenType, body, tt.tokenType)
 }
