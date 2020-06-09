@@ -23,7 +23,7 @@ func Test_removeComments(t *testing.T) {
 }
 
 func TestTokenizer_Tokenize(t *testing.T) {
-	file, _ := os.Open("Square/SquareGame.jack")
+	file, _ := os.Open("sample/Square/SquareGame.jack")
 	defer file.Close()
 	tokenizer := &tokenizer{}
 	tokenizer.Tokenize(file)
