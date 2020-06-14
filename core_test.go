@@ -8,14 +8,14 @@ import (
 func TestNonTerminalToken_AsText(t *testing.T) {
 	token := &NonTerminalToken{
 		tokenType: Class,
-		tokens: []Token{
+		subTokens: []Token{
 			&TerminalToken{
 				tokenType: Keyword,
 				val:       "function",
 			},
 			&NonTerminalToken{
 				tokenType: VarDec,
-				tokens: []Token{
+				subTokens: []Token{
 					&TerminalToken{
 						tokenType: Keyword,
 						val:       "var",

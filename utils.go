@@ -43,3 +43,36 @@ var commentReg = regexp.MustCompile(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)
 func removeComments(line string) string {
 	return strings.TrimSpace(commentReg.ReplaceAllString(strings.TrimSpace(line), ""))
 }
+
+type TokenIterator struct {
+	tokens []Token
+	i      int
+}
+
+func NewTokenIterator(ts []Token) *TokenIterator {
+	return &TokenIterator{
+		tokens: ts,
+	}
+}
+
+func (it *TokenIterator) Size() int {
+	return len(it.tokens)
+}
+
+func (it *TokenIterator) Next() Token {
+	defer func() {
+		it.i++
+	}()
+	return it.Peek()
+}
+
+func (it *TokenIterator) HasNext() bool {
+	return len(it.tokens) > it.i
+}
+
+func (it *TokenIterator) Peek() Token {
+	if !it.HasNext() {
+		return nil
+	}
+	return it.tokens[it.i]
+}

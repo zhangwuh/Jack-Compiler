@@ -6,6 +6,14 @@ import (
 	"strings"
 )
 
+type Tokenizer interface {
+	Tokenize(rd io.Reader) []TerminalToken
+}
+
+type Compiler interface {
+	Compile(tokens []Token) NonTerminalToken
+}
+
 type TokenType string
 
 const (
@@ -34,6 +42,32 @@ const (
 	Term            TokenType = "term"
 	ExpressionList  TokenType = "expressionList"
 )
+
+func of(t Token) TokenType {
+	switch t.GetVal() {
+	case "if":
+		return IfStatement
+	case "while":
+		return WhileStatement
+	case "do":
+		return DoStatement
+	case "return":
+		return ReturnStatement
+	}
+	return t.GetType()
+}
+
+var operations = map[string]string{
+	"+":     "add",
+	"-":     "sub",
+	"&amp;": "and",
+	"|":     "or",
+	"<":     "lt",
+	">":     "gt",
+	"=":     "eq",
+	"/":     "call Math.divide 2",
+	"*":     "call Math.multiply 2",
+}
 
 var terminalElements = []TokenType{Keyword, Identifier, Symbol, IntegerConstant, StringConstant}
 
@@ -65,6 +99,7 @@ type Token interface {
 	SubTokens() []Token
 	IsTerminal() bool
 	AsText() string
+	AddSubToken(ts ...Token)
 }
 type TerminalToken struct {
 	tokenType TokenType
@@ -83,6 +118,9 @@ func (tt *TerminalToken) SubTokens() []Token {
 	return nil
 }
 
+func (tt *TerminalToken) AddSubToken(ts ...Token) {
+}
+
 func (tt *TerminalToken) AsText() string {
 	if tt.tokenType == StringConstant {
 		tt.val = strings.ReplaceAll(tt.val, "\"", "")
@@ -96,7 +134,7 @@ func (tt *TerminalToken) IsTerminal() bool {
 
 type NonTerminalToken struct {
 	tokenType TokenType
-	tokens    []Token
+	subTokens []Token
 }
 
 func (tt *NonTerminalToken) GetType() TokenType {
@@ -108,13 +146,13 @@ func (tt *NonTerminalToken) GetVal() string {
 }
 
 func (tt *NonTerminalToken) SubTokens() []Token {
-	return tt.tokens
+	return tt.subTokens
 }
 
 func (tt *NonTerminalToken) AsText() string {
 	body := ""
-	for _, t := range tt.tokens {
-		body += EscapeXml(t.AsText())
+	for _, t := range tt.subTokens {
+		body += t.AsText()
 	}
 	return fmt.Sprintf("<%s>%s</%s>", tt.tokenType, body, tt.tokenType)
 }
@@ -123,10 +161,6 @@ func (tt *NonTerminalToken) IsTerminal() bool {
 	return false
 }
 
-type Tokenizer interface {
-	Tokenize(rd io.Reader) []TerminalToken
-}
-
-type Analyser interface {
-	Analysis(tokens []Token) NonTerminalToken
+func (tt *NonTerminalToken) AddSubToken(t ...Token) {
+	tt.subTokens = append(tt.subTokens, t...)
 }

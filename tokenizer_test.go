@@ -34,5 +34,5 @@ func TestTokenizer_Tokenize(t *testing.T) {
 	}
 	// close fo on exit and check for its returned error
 	defer fo.Close()
-	writer.Write(tokenizer.tokens, fo)
+	writer.Write(fo, tokenizer.tokens...)
 }

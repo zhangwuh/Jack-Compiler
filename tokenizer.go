@@ -15,18 +15,19 @@ type tokenizer struct {
 }
 
 type TokensWriter interface {
-	Write(ts []Token, writer io.Writer)
+	Write(writer io.Writer, ts ...Token)
 }
 
 type tokensOnlyWriter struct {
 }
 
-func (tow *tokensOnlyWriter) Write(ts []Token, writer io.Writer) {
+func (tow *tokensOnlyWriter) Write(writer io.Writer, ts ...Token) {
 	writer.Write([]byte("<tokens>\n"))
+	defer writer.Write([]byte("</tokens>"))
 	for _, ts := range ts {
 		writer.Write([]byte(ts.AsText() + "\n"))
 	}
-	writer.Write([]byte("</tokens>"))
+
 }
 
 func (tokenizer *tokenizer) Tokenize(rd io.Reader) error {
