@@ -13,11 +13,14 @@ class Square {
 
 /** Constructs a new square with a given location and size. */
    constructor Square new(int Ax, int Ay, int Asize) {
+      let x[i]=1;
       if (1 = 1) {
         let x = Ax;
       }
       if ((2+1) > 3){
         let y = Ay;
       }
+       do draw();
+       return this;
    }
 }

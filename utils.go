@@ -76,3 +76,7 @@ func (it *TokenIterator) Peek() Token {
 	}
 	return it.tokens[it.i]
 }
+
+func IsDot(t Token) bool {
+	return t.GetType() == Symbol && t.GetVal() == "."
+}

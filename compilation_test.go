@@ -7,7 +7,7 @@ import (
 )
 
 func TestCompiler_Compile(t *testing.T) {
-	file, _ := os.Open("sample/test.jack")
+	file, _ := os.Open("sample/Square/Square.jack")
 	defer file.Close()
 	tokenizer := &tokenizer{}
 	tokenizer.Tokenize(file)
@@ -18,7 +18,7 @@ func TestCompiler_Compile(t *testing.T) {
 		return
 	}
 	writer := &nonTerminalTokenWriter{}
-	fo, err := os.Create("output/SquareGame.xml")
+	fo, err := os.Create("output/Square.xml")
 	if err != nil {
 		panic(err)
 	}

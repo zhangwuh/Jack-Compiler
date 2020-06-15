@@ -44,7 +44,7 @@ func (tokenizer *tokenizer) Tokenize(rd io.Reader) error {
 			//end of file
 			return nil
 		}
-		e = tokenizer.tokenize(string(line))
+		e = tokenizer.tokenize(string(line), lineCount)
 		if e != nil {
 			fmt.Println(fmt.Sprintf("err in file %s, line %d, error:%s", tokenizer.file, lineCount, e.Error()))
 			return e
@@ -52,23 +52,23 @@ func (tokenizer *tokenizer) Tokenize(rd io.Reader) error {
 	}
 }
 
-func (tokenizer *tokenizer) tokenize(line string) error {
+func (tokenizer *tokenizer) tokenize(line string, lineCount int) error {
 	line = removeComments(line)
 	if len(line) == 0 {
 		return nil
 	}
-	return tokenizer.lexicalAnalysis(line)
+	return tokenizer.lexicalAnalysis(line, lineCount)
 }
 
-func buildToken(currentToken []rune) (Token, error) {
+func buildToken(currentToken []rune, lineCount int) (Token, error) {
 	typ, err := resolveTokenType(string(currentToken))
 	if err != nil {
 		return nil, err
 	}
-	return &TerminalToken{typ, string(currentToken)}, nil
+	return &TerminalToken{typ, string(currentToken), lineCount}, nil
 }
 
-func (t *tokenizer) lexicalAnalysis(line string) error {
+func (t *tokenizer) lexicalAnalysis(line string, lineCount int) error {
 	for i := 0; i < len(line); i++ {
 		r := []rune(line)[i]
 		if isWord(r) {
@@ -76,14 +76,14 @@ func (t *tokenizer) lexicalAnalysis(line string) error {
 		} else if isNumber(r) {
 			t.currentToken = append(t.currentToken, r)
 		} else if isSymbol(r) {
-			err := t.flush()
+			err := t.flush(lineCount)
 			if err != nil {
 				return err
 			}
-			tt := &TerminalToken{Symbol, string(r)}
+			tt := &TerminalToken{Symbol, string(r), lineCount}
 			t.tokens = append(t.tokens, tt)
 		} else if r == ' ' {
-			err := t.flush()
+			err := t.flush(lineCount)
 			if err != nil {
 				return err
 			}
@@ -94,7 +94,7 @@ func (t *tokenizer) lexicalAnalysis(line string) error {
 				nr := line[i]
 				if nr == '"' {
 					t.currentToken = append(t.currentToken, '"')
-					err := t.flush()
+					err := t.flush(lineCount)
 					if err != nil {
 						return err
 					}
@@ -105,16 +105,16 @@ func (t *tokenizer) lexicalAnalysis(line string) error {
 			}
 		}
 	}
-	err := t.flush()
+	err := t.flush(lineCount)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *tokenizer) flush() error {
+func (t *tokenizer) flush(lineCount int) error {
 	if len(t.currentToken) > 0 {
-		tt, err := buildToken(t.currentToken)
+		tt, err := buildToken(t.currentToken, lineCount)
 		if err != nil {
 			return err
 		}

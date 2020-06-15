@@ -11,7 +11,7 @@ type Tokenizer interface {
 }
 
 type Compiler interface {
-	Compile(tokens []Token) NonTerminalToken
+	Compile(tokens []Token) (*NonTerminalToken, error)
 }
 
 type TokenType string
@@ -38,12 +38,13 @@ const (
 	WhileStatement  TokenType = "whileStatement"
 	DoStatement     TokenType = "doStatement"
 	ReturnStatement TokenType = "returnStatement"
+	VarStatement    TokenType = "varStatement"
 	Expression      TokenType = "expression"
 	Term            TokenType = "term"
 	ExpressionList  TokenType = "expressionList"
 )
 
-func of(t Token) TokenType {
+func typeOf(t Token) TokenType {
 	switch t.GetVal() {
 	case "if":
 		return IfStatement
@@ -53,20 +54,24 @@ func of(t Token) TokenType {
 		return DoStatement
 	case "return":
 		return ReturnStatement
+	case "let":
+		return LetStatement
+	case "var":
+		return VarStatement
 	}
 	return t.GetType()
 }
 
 var operations = map[string]string{
-	"+":     "add",
-	"-":     "sub",
-	"&amp;": "and",
-	"|":     "or",
-	"<":     "lt",
-	">":     "gt",
-	"=":     "eq",
-	"/":     "call Math.divide 2",
-	"*":     "call Math.multiply 2",
+	"+": "add",
+	"-": "sub",
+	"&": "and",
+	"|": "or",
+	"<": "lt",
+	">": "gt",
+	"=": "eq",
+	"/": "call Math.divide 2",
+	"*": "call Math.multiply 2",
 }
 
 var terminalElements = []TokenType{Keyword, Identifier, Symbol, IntegerConstant, StringConstant}
@@ -93,6 +98,12 @@ var keywords = []string{"class", "constructor", "function", "method", "field", "
 	"void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"}
 var symbols = []rune{'{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', '*', '/', '&', '|', '<', '>', '=', '~', '<', '>', '&'}
 
+var keywordConstants = []string{"null", "this", "true", "false"}
+
+func isKeywordConstant(key Token) bool {
+	return ContainsString(keywordConstants, key.GetVal()) && key.GetType() == Keyword
+}
+
 type Token interface {
 	GetType() TokenType
 	GetVal() string
@@ -100,10 +111,12 @@ type Token interface {
 	IsTerminal() bool
 	AsText() string
 	AddSubToken(ts ...Token)
+	Position() int //line number of source code
 }
 type TerminalToken struct {
 	tokenType TokenType
 	val       string
+	line      int
 }
 
 func (tt *TerminalToken) GetType() TokenType {
@@ -130,6 +143,10 @@ func (tt *TerminalToken) AsText() string {
 
 func (tt *TerminalToken) IsTerminal() bool {
 	return true
+}
+
+func (tt *TerminalToken) Position() int {
+	return tt.line
 }
 
 type NonTerminalToken struct {
@@ -163,4 +180,11 @@ func (tt *NonTerminalToken) IsTerminal() bool {
 
 func (tt *NonTerminalToken) AddSubToken(t ...Token) {
 	tt.subTokens = append(tt.subTokens, t...)
+}
+
+func (tt *NonTerminalToken) Position() int {
+	if len(tt.SubTokens()) == 0 {
+		return -1
+	}
+	return tt.subTokens[0].Position()
 }
