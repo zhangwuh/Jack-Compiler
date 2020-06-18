@@ -1,6 +1,7 @@
 package jack_compiler
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -79,4 +80,22 @@ func (it *TokenIterator) Peek() Token {
 
 func IsDot(t Token) bool {
 	return t.GetType() == Symbol && t.GetVal() == "."
+}
+
+func newGrammarError(t Token, msg string) error {
+	return fmt.Errorf("%s, line:%d", msg, t.Position())
+}
+
+func newSyntaxError(t Token) error {
+	return newGrammarError(t, "syntax error")
+}
+
+//find matched sub tokens
+func match(t Token, tag TokenType) (ts []Token) {
+	for _, sub := range t.SubTokens() {
+		if sub.GetType() == tag {
+			ts = append(ts, sub)
+		}
+	}
+	return
 }

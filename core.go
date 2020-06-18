@@ -11,7 +11,7 @@ type Tokenizer interface {
 }
 
 type Compiler interface {
-	Compile(tokens []Token) (*NonTerminalToken, error)
+	LexialAnalysis(tokens []Token) (*NonTerminalToken, error)
 }
 
 type TokenType string
@@ -40,7 +40,7 @@ const (
 	ReturnStatement TokenType = "returnStatement"
 	VarStatement    TokenType = "varStatement"
 	Expression      TokenType = "expression"
-	Term            TokenType = "term"
+	TokenTerm       TokenType = "term"
 	ExpressionList  TokenType = "expressionList"
 )
 

@@ -7,18 +7,18 @@ import (
 )
 
 func TestCompiler_Compile(t *testing.T) {
-	file, _ := os.Open("sample/Square/Square.jack")
+	file, _ := os.Open("foo.jack")
 	defer file.Close()
 	tokenizer := &tokenizer{}
 	tokenizer.Tokenize(file)
-	compiler := &compiler{}
-	compiled, err := compiler.Compile(tokenizer.tokens)
+	compiler := &analysizer{}
+	compiled, err := compiler.LexialAnalysis(tokenizer.tokens)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 	writer := &nonTerminalTokenWriter{}
-	fo, err := os.Create("output/Square.xml")
+	fo, err := os.Create("output/foo.xml")
 	if err != nil {
 		panic(err)
 	}

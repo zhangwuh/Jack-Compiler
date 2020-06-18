@@ -5,13 +5,9 @@ import (
 	"io"
 )
 
-func newCompileError(t Token, msg string) error {
-	return fmt.Errorf("%s, line:%d", msg, t.Position())
-}
-
 func assertToken(t Token, typ TokenType, val string) error {
 	if typ != t.GetType() || (len(val) > 0 && t.GetVal() != val) {
-		return newCompileError(t, fmt.Sprintf("compile error, encountered:%s, expected:%s", t.GetVal(), val))
+		return newGrammarError(t, fmt.Sprintf("analysizer error, encountered:%s, expected:%s", t.GetVal(), val))
 	}
 	return nil
 }
@@ -24,7 +20,7 @@ func (ntw *nonTerminalTokenWriter) Write(writer io.Writer, ts ...Token) {
 	}
 }
 
-type compiler struct {
+type analysizer struct {
 }
 
 type blockEndChecker func(it *TokenIterator) bool
@@ -41,15 +37,15 @@ var bodyEndChecker = func(it *TokenIterator) bool {
 	return it.Peek().GetVal() == "}"
 }
 
-func (cp *compiler) Compile(tokens []Token) (*NonTerminalToken, error) {
+func (cp *analysizer) LexialAnalysis(tokens []Token) (*NonTerminalToken, error) {
 	it := &TokenIterator{tokens: tokens}
 	if it.Size() == 0 {
 		return nil, nil
 	}
-	return compileClass(it)
+	return analysisClass(it)
 }
 
-func compileClass(it *TokenIterator) (nt *NonTerminalToken, err error) {
+func analysisClass(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	nt = &NonTerminalToken{
 		tokenType: Class,
 	}
@@ -73,10 +69,10 @@ func compileClass(it *TokenIterator) (nt *NonTerminalToken, err error) {
 		token = it.Peek()
 		switch token.GetVal() {
 		case "field", "static":
-			nt.AddSubToken(compileClassVarDec(it))
+			nt.AddSubToken(analysisClassVarDec(it))
 			continue
 		case "constructor", "function", "method":
-			sub, se := compileSubRoutineDec(it)
+			sub, se := analysizerSubRoutineDec(it)
 			if se != nil {
 				return nil, se
 			}
@@ -94,7 +90,7 @@ func compileClass(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	return
 }
 
-func compileSubRoutineDec(it *TokenIterator) (*NonTerminalToken, error) {
+func analysizerSubRoutineDec(it *TokenIterator) (*NonTerminalToken, error) {
 	nt := &NonTerminalToken{
 		tokenType: SubroutineDec,
 	}
@@ -103,10 +99,10 @@ func compileSubRoutineDec(it *TokenIterator) (*NonTerminalToken, error) {
 	nt.AddSubToken(it.Next()) //class name in constructor, void, return type
 	nt.AddSubToken(it.Next()) //func,method name
 
-	ts, _ := withParentheses(it, compileParameters)
+	ts, _ := withParentheses(it, analysisParameters)
 	nt.AddSubToken(ts...)
 
-	st, err := compileSubRoutineBody(it)
+	st, err := analysisSubRoutineBody(it)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +146,7 @@ func withCurlyBrackets(it *TokenIterator, builder func(it *TokenIterator) (*NonT
 	return withSymbolBlock(it, curlyBrackets, builder)
 }
 
-func compileExpressionList(it *TokenIterator) (nt *NonTerminalToken, err error) {
+func analysisExpressionList(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	nt = &NonTerminalToken{
 		tokenType: ExpressionList,
 	}
@@ -159,7 +155,7 @@ func compileExpressionList(it *TokenIterator) (nt *NonTerminalToken, err error) 
 			return
 		}
 
-		exp, err := compileExpression(it)
+		exp, err := analysisExpression(it)
 		if err != nil {
 			return nil, err
 		}
@@ -172,11 +168,11 @@ func compileExpressionList(it *TokenIterator) (nt *NonTerminalToken, err error) 
 	return
 }
 
-func compileExpression(it *TokenIterator) (nt *NonTerminalToken, err error) {
+func analysisExpression(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	nt = &NonTerminalToken{
 		tokenType: Expression,
 	}
-	leftTerm, e := compileTerm(it)
+	leftTerm, e := analysisTerm(it)
 	if e != nil {
 		return nil, e
 	}
@@ -189,7 +185,7 @@ func compileExpression(it *TokenIterator) (nt *NonTerminalToken, err error) {
 
 	nt.AddSubToken(it.Next()) //operation symbol
 
-	rightTerm, e := compileTerm(it)
+	rightTerm, e := analysisTerm(it)
 	if e != nil {
 		return nil, e
 	}
@@ -197,27 +193,27 @@ func compileExpression(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	return
 }
 
-func compileTerm(it *TokenIterator) (*NonTerminalToken, error) {
+func analysisTerm(it *TokenIterator) (*NonTerminalToken, error) {
 	term := &NonTerminalToken{
-		tokenType: Term,
+		tokenType: TokenTerm,
 	}
 	next := it.Peek()
 	if next.GetVal() == "(" { //expression
-		st, err := withParentheses(it, compileExpression)
+		st, err := withParentheses(it, analysisExpression)
 		if err != nil {
 			return nil, err
 		}
 		term.AddSubToken(st...)
 
 	} else if next.GetType() == Identifier { // x , x.a()
-		token, err := compileIdentifier(it)
+		token, err := analysisIdentifier(it)
 		if err != nil {
 			return nil, err
 		}
 		term.AddSubToken(token...)
 	} else if next.GetType() == Symbol { //-1, -i
 		term.AddSubToken(it.Next())
-		st, err := compileTerm(it)
+		st, err := analysisTerm(it)
 		if err != nil {
 			return nil, err
 		}
@@ -225,12 +221,12 @@ func compileTerm(it *TokenIterator) (*NonTerminalToken, error) {
 	} else if next.GetType() == IntegerConstant || next.GetType() == StringConstant || isKeywordConstant(next) {
 		term.AddSubToken(it.Next())
 	} else {
-		return nil, newCompileError(next, fmt.Sprintf("invalid grammar error in if statement:%s", next.AsText()))
+		return nil, newGrammarError(next, fmt.Sprintf("invalid grammar error in if statement:%s", next.AsText()))
 	}
 	return term, nil
 }
 
-func compileSubRoutineBody(it *TokenIterator) (Token, error) {
+func analysisSubRoutineBody(it *TokenIterator) (Token, error) {
 	nt := &NonTerminalToken{
 		tokenType: SubroutineBody,
 	}
@@ -249,19 +245,19 @@ func compileSubRoutineBody(it *TokenIterator) (Token, error) {
 		}
 		tt := typeOf(t)
 		if tt == IfStatement || tt == LetStatement || tt == WhileStatement || tt == DoStatement || tt == ReturnStatement {
-			st, err := compileStatements(it)
+			st, err := analysisStatements(it)
 			if err != nil {
 				return nil, err
 			}
 			nt.AddSubToken(st)
 		} else if tt == VarStatement {
-			ts, err := compileVarDec(it)
+			ts, err := analysisVarDec(it)
 			if err != nil {
 				return nil, err
 			}
 			nt.AddSubToken(ts)
 		} else {
-			return nil, newCompileError(it.Peek(), fmt.Sprintf("grammar error, unknow token:%s", t.AsText()))
+			return nil, newGrammarError(it.Peek(), fmt.Sprintf("grammar error, unknow token:%s", t.AsText()))
 		}
 	}
 
@@ -273,7 +269,7 @@ func compileSubRoutineBody(it *TokenIterator) (Token, error) {
 	return nt, nil
 }
 
-func compileStatements(it *TokenIterator) (nt *NonTerminalToken, err error) {
+func analysisStatements(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	nt = &NonTerminalToken{
 		tokenType: Statements,
 	}
@@ -282,35 +278,35 @@ func compileStatements(it *TokenIterator) (nt *NonTerminalToken, err error) {
 		token := it.Peek()
 		switch typeOf(token) {
 		case IfStatement:
-			ts, err := compileIfStatement(it)
+			ts, err := analysisIfStatement(it)
 			if err != nil {
 				return nil, err
 			}
 			nt.AddSubToken(ts)
 			continue
 		case WhileStatement:
-			ts, err := compileWhileStatement(it)
+			ts, err := analysisWhileStatement(it)
 			if err != nil {
 				return nil, err
 			}
 			nt.AddSubToken(ts)
 			continue
 		case LetStatement:
-			ts, err := compileLetStatement(it)
+			ts, err := analysisLetStatement(it)
 			if err != nil {
 				return nil, err
 			}
 			nt.AddSubToken(ts)
 			continue
 		case DoStatement:
-			ts, err := compileDoStatement(it)
+			ts, err := analysisDoStatement(it)
 			if err != nil {
 				return nil, err
 			}
 			nt.AddSubToken(ts)
 			continue
 		case ReturnStatement:
-			ts, err := compileReturnStatement(it)
+			ts, err := analysisReturnStatement(it)
 			if err != nil {
 				return nil, err
 			}
@@ -324,7 +320,7 @@ func compileStatements(it *TokenIterator) (nt *NonTerminalToken, err error) {
 }
 
 /* handle variable ref like: a, a[0], a[0+1]*/
-func compileIdentifier(it *TokenIterator) (ts []Token, err error) {
+func analysisIdentifier(it *TokenIterator) (ts []Token, err error) {
 	t := it.Next()
 	if err := assertToken(t, Identifier, ""); err != nil {
 		return nil, err
@@ -335,7 +331,7 @@ func compileIdentifier(it *TokenIterator) (ts []Token, err error) {
 	if t.GetType() == Symbol && t.GetVal() == "[" {
 		ts = append(ts, it.Next())
 
-		exp, err := compileExpression(it)
+		exp, err := analysisExpression(it)
 		if err != nil {
 			return nil, err
 		}
@@ -349,7 +345,7 @@ func compileIdentifier(it *TokenIterator) (ts []Token, err error) {
 	} else {
 		if t.GetType() == Symbol && t.GetVal() == "." { //subroutine call
 			ts = append(ts, it.Next()) //add "."
-			st, err := compileSubCall(it)
+			st, err := analysisSubCall(it)
 			if err != nil {
 				return nil, err
 			}
@@ -360,7 +356,7 @@ func compileIdentifier(it *TokenIterator) (ts []Token, err error) {
 	return
 }
 
-func compileIfStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
+func analysisIfStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	nt = &NonTerminalToken{
 		tokenType: IfStatement,
 	}
@@ -374,14 +370,14 @@ func compileIfStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	}
 	nt.AddSubToken(token) //if
 	if token.GetVal() == "if" {
-		st, e := withParentheses(it, compileExpression) // (expression)
+		st, e := withParentheses(it, analysisExpression) // (expression)
 		if e != nil {
 			return nil, e
 		}
 		nt.AddSubToken(st...)
 	}
 
-	sts, ee := withCurlyBrackets(it, compileStatements) //{statements}
+	sts, ee := withCurlyBrackets(it, analysisStatements) //{statements}
 	if ee != nil {
 		return nil, ee
 	}
@@ -390,7 +386,7 @@ func compileIfStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	next := it.Peek()
 	if next.GetVal() == "else" {
 		nt.AddSubToken(it.Next())
-		sts, ee := withCurlyBrackets(it, compileStatements) //{statements}
+		sts, ee := withCurlyBrackets(it, analysisStatements) //{statements}
 		if ee != nil {
 			return nil, ee
 		}
@@ -399,7 +395,7 @@ func compileIfStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	return nt, nil
 }
 
-func compileWhileStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
+func analysisWhileStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	nt = &NonTerminalToken{
 		tokenType: WhileStatement,
 	}
@@ -410,13 +406,13 @@ func compileWhileStatement(it *TokenIterator) (nt *NonTerminalToken, err error) 
 	}
 	nt.AddSubToken(token) //while
 
-	st, e := withParentheses(it, compileExpression)
+	st, e := withParentheses(it, analysisExpression)
 	if e != nil {
 		return nil, e
 	}
 	nt.AddSubToken(st...)
 
-	sts, ee := withCurlyBrackets(it, compileStatements) //{statements}
+	sts, ee := withCurlyBrackets(it, analysisStatements) //{statements}
 	if ee != nil {
 		return nil, ee
 	}
@@ -424,7 +420,7 @@ func compileWhileStatement(it *TokenIterator) (nt *NonTerminalToken, err error) 
 	return
 }
 
-func compileLetStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
+func analysisLetStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	nt = &NonTerminalToken{
 		tokenType: LetStatement,
 	}
@@ -435,7 +431,7 @@ func compileLetStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	}
 	nt.AddSubToken(token) //let
 
-	varname, err := compileIdentifier(it)
+	varname, err := analysisIdentifier(it)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +443,7 @@ func compileLetStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	}
 	nt.AddSubToken(token)
 
-	exp, err := compileExpression(it)
+	exp, err := analysisExpression(it)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +458,7 @@ func compileLetStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	return
 }
 
-func compileDoStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
+func analysisDoStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	nt = &NonTerminalToken{
 		tokenType: DoStatement,
 	}
@@ -491,7 +487,7 @@ func compileDoStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 		nt.AddSubToken(token)
 	}
 
-	ts, err := withParentheses(it, compileExpressionList)
+	ts, err := withParentheses(it, analysisExpressionList)
 	if err != nil {
 		return nil, err
 	}
@@ -506,7 +502,7 @@ func compileDoStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	return
 }
 
-func compileReturnStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
+func analysisReturnStatement(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	nt = &NonTerminalToken{
 		tokenType: ReturnStatement,
 	}
@@ -517,7 +513,7 @@ func compileReturnStatement(it *TokenIterator) (nt *NonTerminalToken, err error)
 	nt.AddSubToken(token) //return
 
 	if it.Peek().GetType() != Symbol && it.Peek().GetVal() != ";" {
-		ct, err := compileExpression(it)
+		ct, err := analysisExpression(it)
 		if err != nil {
 			return nil, err
 		}
@@ -532,7 +528,7 @@ func compileReturnStatement(it *TokenIterator) (nt *NonTerminalToken, err error)
 	return
 }
 
-func compileParameters(it *TokenIterator) (*NonTerminalToken, error) {
+func analysisParameters(it *TokenIterator) (*NonTerminalToken, error) {
 	ts := &NonTerminalToken{
 		tokenType: ParameterList,
 	}
@@ -545,7 +541,7 @@ func compileParameters(it *TokenIterator) (*NonTerminalToken, error) {
 	return ts, nil
 }
 
-func compileClassVarDec(it *TokenIterator) *NonTerminalToken {
+func analysisClassVarDec(it *TokenIterator) *NonTerminalToken {
 	nt := &NonTerminalToken{
 		tokenType: ClassVarDec,
 	}
@@ -562,7 +558,7 @@ func compileClassVarDec(it *TokenIterator) *NonTerminalToken {
 
 var langSupportedTypes = []string{"int", "string", "Array", "char", "boolean"}
 
-func compileVarDec(it *TokenIterator) (nt *NonTerminalToken, err error) {
+func analysisVarDec(it *TokenIterator) (nt *NonTerminalToken, err error) {
 	nt = &NonTerminalToken{
 		tokenType: VarDec,
 	}
@@ -575,7 +571,7 @@ func compileVarDec(it *TokenIterator) (nt *NonTerminalToken, err error) {
 
 	token = it.Next()
 	if !ContainsString(langSupportedTypes, token.GetVal()) && token.GetType() != Identifier {
-		return nil, newCompileError(token, fmt.Sprintf("invalid var type:%s", token.GetVal()))
+		return nil, newGrammarError(token, fmt.Sprintf("invalid var type:%s", token.GetVal()))
 	}
 	nt.AddSubToken(token) //int,string,class
 
@@ -603,7 +599,7 @@ func compileVarDec(it *TokenIterator) (nt *NonTerminalToken, err error) {
 }
 
 //handle a.b.c(exp)
-func compileSubCall(it *TokenIterator) (ts []Token, err error) {
+func analysisSubCall(it *TokenIterator) (ts []Token, err error) {
 	for it.HasNext() {
 		token := it.Next()
 		if err = assertToken(token, Identifier, ""); err != nil {
@@ -614,7 +610,7 @@ func compileSubCall(it *TokenIterator) (ts []Token, err error) {
 		next := it.Peek()
 
 		if next.GetVal() == "(" && next.GetType() == Symbol {
-			el, e := withParentheses(it, compileExpressionList)
+			el, e := withParentheses(it, analysisExpressionList)
 			if e != nil {
 				return nil, err
 			}
