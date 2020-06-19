@@ -1,6 +1,6 @@
 # Jack-Compiler
 
-This is a Jack compiler implemented in golang followed by the book of <<The Elements of Computing Systems>>(By Noam Nisan and Shimon Schocken (MIT Press)). It consists of two parts:
+This is a Jack compiler implemented in golang followed by the book of <The Elements of Computing Systems>(By Noam Nisan and Shimon Schocken (MIT Press)). It consists of two parts:
 
 ## Syntax Analysis
 1. tokenizer: tokenizer.go
