@@ -1,8 +1,9 @@
-package jack_compiler
+package compiler
 
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 func assertToken(t Token, typ TokenType, val string) error {
@@ -22,8 +23,6 @@ func (ntw *nonTerminalTokenWriter) Write(writer io.Writer, ts ...Token) {
 
 type analysizer struct {
 }
-
-type blockEndChecker func(it *TokenIterator) bool
 
 var statementEndChecker = func(it *TokenIterator) bool {
 	return it.Peek().GetVal() == ";"
@@ -218,7 +217,11 @@ func analysisTerm(it *TokenIterator) (*NonTerminalToken, error) {
 			return nil, err
 		}
 		term.AddSubToken(st)
-	} else if next.GetType() == IntegerConstant || next.GetType() == StringConstant || isKeywordConstant(next) {
+	} else if next.GetType() == StringConstant {
+		next := it.Next()
+		(next.(*TerminalToken)).val = strings.ReplaceAll(next.GetVal(), "\"", "")
+		term.AddSubToken(next)
+	} else if next.GetType() == IntegerConstant || isKeywordConstant(next) {
 		term.AddSubToken(it.Next())
 	} else {
 		return nil, newGrammarError(next, fmt.Sprintf("invalid grammar error in if statement:%s", next.AsText()))

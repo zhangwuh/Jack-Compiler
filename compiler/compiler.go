@@ -1,4 +1,4 @@
-package jack_compiler
+package compiler
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func compileDir(dir string, outputDir string) error {
+func CompileDir(dir string, outputDir string) error {
 	if len(outputDir) == 0 {
 		outputDir = dir
 	}
@@ -22,14 +22,14 @@ func compileDir(dir string, outputDir string) error {
 		return err
 	}
 	for _, file := range sources {
-		if err := compileFile(file, outputDir); err != nil {
+		if err := CompileFile(file, outputDir); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func compileFile(file string, dir string) error {
+func CompileFile(file string, dir string) error {
 	f, _ := os.Open(file)
 	defer f.Close()
 	tokenizer := &tokenizer{}
@@ -40,15 +40,21 @@ func compileFile(file string, dir string) error {
 		fmt.Println(err.Error())
 		return err
 	}
+	jc, err := parseClass(output)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
 
-	cw := &classWriter{}
-	fo, err := os.Create(fmt.Sprintf("%s/%s.vm", dir, strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))))
+	cw := NewVmCompiler(jc)
+	base := filepath.Base(file)
+	fo, err := os.Create(fmt.Sprintf("%s/%s.vm", dir, strings.TrimSuffix(base, filepath.Ext(file))))
 	if err != nil {
 		panic(err)
 	}
 	// close fo on exit and check for its returned error
 	defer fo.Close()
-	cw.Write(fo, output)
-	fmt.Printf("%s compiled to %s", file, dir)
+	cw.compileAndWrite(fo)
+	fmt.Println(fmt.Sprintf("%s compiled to %s", file, dir))
 	return nil
 }

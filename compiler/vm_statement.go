@@ -1,6 +1,7 @@
-package jack_compiler
+package compiler
 
 type statementCategory int
+
 const (
 	ifSc statementCategory = iota
 	whileSc
@@ -15,7 +16,7 @@ type Statement interface {
 
 type termCategory int
 
-const(
+const (
 	constantTerm termCategory = iota
 	referenceTerm
 	unaryTerm
@@ -29,7 +30,7 @@ type Term interface {
 
 type ConstTerm struct {
 	ttype TokenType //keyword, string, integer
-	val interface{}
+	val   interface{}
 }
 
 func (ct ConstTerm) category() termCategory {
@@ -38,7 +39,7 @@ func (ct ConstTerm) category() termCategory {
 
 type UnaryTerm struct {
 	operator string
-	term 	 Term
+	term     Term
 }
 
 func (ut UnaryTerm) category() termCategory {
@@ -47,15 +48,19 @@ func (ut UnaryTerm) category() termCategory {
 
 type ReferenceTerm struct {
 	varName string
-	index expression
+	index   expression
 }
 
 func (rt ReferenceTerm) category() termCategory {
 	return referenceTerm
 }
 
+func (rt ReferenceTerm) isArrayRef() bool {
+	return !rt.index.isEmpty()
+}
+
 type expression struct {
-	terms []Term
+	terms      []Term
 	operations []string
 }
 
@@ -63,14 +68,27 @@ func (exp expression) category() termCategory {
 	return expressionTerm
 }
 
+func (exp expression) isEmpty() bool {
+	return len(exp.terms) == 0
+}
+
 type ifStatement struct {
-	condition expression
-	statements []Statement
+	condition      expression
+	statements     []Statement
 	elseStatements []Statement
 }
 
 func (is ifStatement) category() statementCategory {
 	return ifSc
+}
+
+type whileStatement struct {
+	condition  expression
+	statements []Statement
+}
+
+func (ws whileStatement) category() statementCategory {
+	return whileSc
 }
 
 type doStatement struct {
@@ -82,7 +100,7 @@ func (ds doStatement) category() statementCategory {
 }
 
 type letStatement struct {
-	target ReferenceTerm
+	target     ReferenceTerm
 	expression expression
 }
 
@@ -97,5 +115,3 @@ type retStatement struct {
 func (rs retStatement) category() statementCategory {
 	return retSc
 }
-
-

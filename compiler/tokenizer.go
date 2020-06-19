@@ -1,4 +1,4 @@
-package jack_compiler
+package compiler
 
 import (
 	"bufio"

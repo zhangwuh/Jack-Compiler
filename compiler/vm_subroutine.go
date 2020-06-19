@@ -1,4 +1,4 @@
-package jack_compiler
+package compiler
 
 type subroutineCategory string
 
@@ -9,17 +9,17 @@ const (
 )
 
 type subroutine struct {
-	name string
-	category subroutineCategory
+	name         string
+	category     subroutineCategory
 	declarations []variable
-	statements []Statement
-	retType string
+	statements   []Statement
+	retType      string
 }
 
 type subroutineCall struct {
 	target string
-	name string
-	args []expression
+	name   string
+	args   []expression
 }
 
 func (sc subroutineCall) category() termCategory {
