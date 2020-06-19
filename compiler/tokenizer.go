@@ -69,7 +69,8 @@ func buildToken(currentToken []rune, lineCount int) (Token, error) {
 }
 
 func (t *tokenizer) lexicalAnalysis(line string, lineCount int) error {
-	for i := 0; i < len(line); i++ {
+	rs := []rune(line)
+	for i := 0; i < len(rs); i++ {
 		r := []rune(line)[i]
 		if isWord(r) {
 			t.currentToken = append(t.currentToken, r)

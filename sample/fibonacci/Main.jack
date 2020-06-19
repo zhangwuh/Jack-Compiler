@@ -1,0 +1,35 @@
+
+class Main {
+
+    function void main() {
+        var int result;
+        let result = Main.fib(20);
+        do Output.printString("THE Fib result is: ");
+        do Output.printInt(result);
+        return;
+    }
+
+    function int fib(int i) {
+        var int j,x,y;
+        let j = 1;
+        var int result;
+
+        while((j < i) | (j = i)) {
+            if(j=1){
+               let result = 1;
+               let x = 1;
+            }
+            if(j=2){
+                let result = 1;
+                let y = 1;
+            }
+            if(j > 2){
+                let result = x + y;
+                let x = y;
+                let y = result;
+            }
+            let j = j+1;
+        }
+        return result;
+    }
+}
